@@ -6,6 +6,7 @@ from typing import Optional
 
 OPERATORS = OrderedDict({
     '*': {'operands': 1, 'function': ...},
+    '+': {'operands': 1, 'function': ...},
     '.': {'operands': 2, 'function': ...},
     '|': {'operands': 2, 'function': ...},
 
@@ -30,7 +31,8 @@ def infix_to_postfix(expression: str) -> str:
 
         # Each operator is evaluated prior to being appended to the output
         if token in OPERATORS:
-            while stack and list(OPERATORS).index(token) >= (len(OPERATORS) if stack[-1] is '(' else list(OPERATORS).index(stack[-1])):
+            while stack and list(OPERATORS).index(token) >= (
+            len(OPERATORS) if stack[-1] is '(' else list(OPERATORS).index(stack[-1])):
                 output.append(stack.pop())
             stack.append(token)
 
@@ -57,13 +59,13 @@ def compile(expression: str):
 
     for token in expression:
 
-        if token == '.':
+        if token is '.':
             nfa2, nfa1 = (nfs_stack.pop() for _ in range(2))
 
             nfa1.accept.edges = (nfa2.initial,)
             nfs_stack.append(NFA(nfa1.initial, nfa2.accept))
 
-        elif token == '|':
+        elif token is '|':
             nfa2, nfa1 = (nfs_stack.pop() for _ in range(2))
 
             initial = State()
@@ -75,14 +77,30 @@ def compile(expression: str):
 
             nfs_stack.append(NFA(initial, accept))
 
-        elif token == '*':
-            nfa1 = nfs_stack.pop()
-            initial = State()
-            accept = State()
-            initial.edges = (nfa1.initial, accept)
-            nfa1.accept.edges = (nfa1.initial, accept)
+        elif token is '*':
+            nfa = nfs_stack.pop()
+
+            initial, accept = State(), State()
+            initial.edges = (nfa.initial, accept)
+
+            nfa.accept.edges = (nfa.initial, accept)
             nfs_stack.append(NFA(initial, accept))
 
+        elif token is '+':
+            nfa = nfs_stack.pop()
+
+            initial, accept = State(), State()
+            initial.edges = (nfa.initial,)
+
+            nfa.accept.edges = (initial, accept,)
+            nfs_stack.append(NFA(initial, accept))
+
+        # case '+':                                    case '*':
+        # e = pop();                                   e = pop();
+        # s = state(Split, e.start, NULL);             s = state(Split, e.start, NULL);
+        # patch(e.out, s);                             patch(e.out, s);
+        # push(frag(e.start, list1( & s->out1)));      push(frag(s, list1(&s->out1)));
+        # break;                                       break;
         else:
             accept = State()
             initial = State()
@@ -127,6 +145,7 @@ def follow_es(state: State):
 
     return states
 
+
 tests = [
     # Simple non grouped expressions
     ('a.b|c.a', 'ab.ca.|'), ('a.b.c*', 'ab.c*.'), ('a.b|d.c*', 'ab.dc*.|'), ('a.bd*', 'abd*.'),
@@ -145,8 +164,9 @@ tests = [
 #     print('Test:', expected_result == result)
 #     print()
 
-infixes = ["a.b.c*", "a.(b|d).c*", "(a.(b|d))*", "a.(b.b)*.c"]
-strings = ["", "abc", "abbc", "abcc", "abad", "abbbc"]
+infixes = ["a.b.c*", "a.(b|d).c*", "(a.(b|d))*", "a.(b.b)*.c", 'a+', '(a|b)+']
+strings = ["", "abc", "abbc", "abcc", "abad", "abbbc", 'a', 'aaa', 'ab', 'abab', 'ababa']
+
 
 for i in infixes:
     for s in strings:
