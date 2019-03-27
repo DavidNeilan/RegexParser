@@ -1,21 +1,13 @@
-from collections import OrderedDict
-
-# Ordered by precedence where a lower index indicates a higher index
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List, Tuple
 
-OPERATORS = OrderedDict({
-    '*': {'operands': 1, 'function': ...},
-    '+': {'operands': 1, 'function': ...},
-    '.': {'operands': 2, 'function': ...},
-    '|': {'operands': 2, 'function': ...},
-
-})
+# Order of precedence for operators is derived from it's index e.g. index of '0' would indicate highest precedence.
+OPERATORS = ['*', '+', '.', '|']
 
 
 class State:
-    label = None
-    edges = tuple()
+    label: Optional[str] = None
+    edges: Tuple = tuple()
 
 
 @dataclass
@@ -24,28 +16,30 @@ class NFA:
     accept: Optional[State] = None
 
 
-def infix_to_postfix(expression: str) -> str:
+def infix_to_postfix(infix_expression: str) -> str:
     stack, output = [], []
 
-    for token in expression:
+    for token in infix_expression:
 
-        # Each operator is evaluated prior to being appended to the output
+        # Pop stack until a lower priority operator is found. A '(' will be considered to have the highest priority.
         if token in OPERATORS:
-            while stack and list(OPERATORS).index(token) >= (
-            len(OPERATORS) if stack[-1] is '(' else list(OPERATORS).index(stack[-1])):
+            while stack and OPERATORS.index(token) >= (len(OPERATORS) if stack[-1] is '(' else OPERATORS.index(stack[-1])):
                 output.append(stack.pop())
             stack.append(token)
 
+        # A '(' will be considered to have the highest priority and therefore will be always be added to top of stack
         elif token == '(':
             stack.append(token)
 
+        # A ')' will pop the stack until a '(' is found.
         elif token == ')':
             while stack and stack[-1] is not '(':
                 output.append(stack.pop())
             stack.pop()
+
+        # Non-parentheses and non-operators are immediately added to the output
         else:
-            if token != '(':
-                output.append(token)
+            output.append(token)
 
     # Add all remaining operators to the output
     for operator in stack[::-1]:
@@ -54,35 +48,41 @@ def infix_to_postfix(expression: str) -> str:
     return ''.join(output)
 
 
-def compile(expression: str):
-    nfs_stack = []
+def build_nfa(postfix_expression: str) -> NFA:
+    nfs_stack: List[NFA] = []
 
-    for token in expression:
+    for token in postfix_expression:
 
         if token is '.':
-            nfa2, nfa1 = (nfs_stack.pop() for _ in range(2))
+            nfa_2, nfa_1 = (nfs_stack.pop() for _ in range(2))
 
-            nfa1.accept.edges = (nfa2.initial,)
-            nfs_stack.append(NFA(nfa1.initial, nfa2.accept))
+            # Connect nfa_1 to nfa_2
+            nfa_1.accept.edges = (nfa_2.initial,)
+
+            nfs_stack.append(NFA(nfa_1.initial, nfa_2.accept))
 
         elif token is '|':
-            nfa2, nfa1 = (nfs_stack.pop() for _ in range(2))
+            nfa_2, nfa_1 = (nfs_stack.pop() for _ in range(2))
 
+            # Create a new state and connect both NFA's initial state to the new state
             initial = State()
-            initial.edges = (nfa1.initial, nfa2.initial)
+            initial.edges = (nfa_1.initial, nfa_2.initial)
 
+            # Create a new accept state and set both NFA's edges to the new accept state
             accept = State()
-            nfa1.accept.edges = (accept,)
-            nfa2.accept.edges = (accept,)
+            nfa_1.accept.edges = (accept,)
+            nfa_2.accept.edges = (accept,)
 
             nfs_stack.append(NFA(initial, accept))
 
         elif token is '*':
             nfa = nfs_stack.pop()
-
             initial, accept = State(), State()
+
+            # In the newly created initial state set it's edges to the NFA's initial state and the newly created accept
             initial.edges = (nfa.initial, accept)
 
+            # Connect the NFA to its initial state and the new accept state
             nfa.accept.edges = (nfa.initial, accept)
             nfs_stack.append(NFA(initial, accept))
 
@@ -90,17 +90,13 @@ def compile(expression: str):
             nfa = nfs_stack.pop()
 
             initial, accept = State(), State()
+            # Connect the new initial state to the NFA's initial state
             initial.edges = (nfa.initial,)
 
+            # Connect the NFA to the newly created initial state and accept state
             nfa.accept.edges = (initial, accept,)
             nfs_stack.append(NFA(initial, accept))
 
-        # case '+':                                    case '*':
-        # e = pop();                                   e = pop();
-        # s = state(Split, e.start, NULL);             s = state(Split, e.start, NULL);
-        # patch(e.out, s);                             patch(e.out, s);
-        # push(frag(e.start, list1( & s->out1)));      push(frag(s, list1(&s->out1)));
-        # break;                                       break;
         else:
             accept = State()
             initial = State()
@@ -111,11 +107,13 @@ def compile(expression: str):
     return nfs_stack.pop()
 
 
-def match(expression: str, test_string: str) -> bool:
-    nfa = compile(infix_to_postfix(expression))
+def match(infix_expression: str, test_string: str) -> bool:
+    # Convert infix expression to postfix and build a NFA from said expression
+    nfa = build_nfa(infix_to_postfix(infix_expression))
+
     current_states, next_states = set(), set()
 
-    # Add the initial state to the curenent set
+    # Add the initial state to the current set
     current_states = current_states.union(follow_es(nfa.initial))
 
     for token in test_string:
@@ -134,8 +132,6 @@ def match(expression: str, test_string: str) -> bool:
 
 
 def follow_es(state: State):
-    """ Returns the set of states forllowing E arrows """
-
     # Create a new set, with state as it's only member
     states = {state}
 
