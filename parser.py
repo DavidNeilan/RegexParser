@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional, List, Tuple
 
 # Order of precedence for operators is derived from it's index e.g. index of '0' would indicate highest precedence.
-OPERATORS = ['*', '+', '.', '|']
+OPERATORS = ['*', '+', '?', '.', '|']
 
 
 class State:
@@ -97,6 +97,16 @@ def build_nfa(postfix_expression: str) -> NFA:
             nfa.accept.edges = (initial, accept,)
             nfs_stack.append(NFA(initial, accept))
 
+        elif token is '?':
+            nfa = nfs_stack.pop()
+            initial, accept = State(), State()
+
+            # In the newly created initial state set it's edges to the NFA's initial state and the newly created accept
+            initial.edges = (nfa.initial, accept)
+
+            # Connect the NFA to the new accept state
+            nfa.accept.edges = (accept,)
+            nfs_stack.append(NFA(initial, accept))
         else:
             accept = State()
             initial = State()
@@ -160,9 +170,8 @@ tests = [
 #     print('Test:', expected_result == result)
 #     print()
 
-infixes = ["a.b.c*", "a.(b|d).c*", "(a.(b|d))*", "a.(b.b)*.c", 'a+', '(a|b)+']
-strings = ["", "abc", "abbc", "abcc", "abad", "abbbc", 'a', 'aaa', 'ab', 'abab', 'ababa']
-
+infixes = ["a.b.c*", "a.(b|d).c*", "(a.(b|d))*", "a.(b.b)*.c", 'a+', '(a|b)+', 'a?', '(a|b)?']
+strings = ["", "abc", "abbc", "abcc", "abad", "abbbc", 'a', 'aaa', 'ab', 'abab', 'ababa', 'a', 'aa', 'b']
 
 for i in infixes:
     for s in strings:
