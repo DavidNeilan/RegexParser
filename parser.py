@@ -1,3 +1,5 @@
+import argparse
+
 from dataclasses import dataclass
 from typing import Optional, List, Tuple
 
@@ -170,9 +172,20 @@ tests = [
 #     print('Test:', expected_result == result)
 #     print()
 
-infixes = ["a.b.c*", "a.(b|d).c*", "(a.(b|d))*", "a.(b.b)*.c", 'a+', '(a|b)+', 'a?', '(a|b)?']
-strings = ["", "abc", "abbc", "abcc", "abad", "abbbc", 'a', 'aaa', 'ab', 'abab', 'ababa', 'a', 'aa', 'b']
+# infixes = ["a.b.c*", "a.(b|d).c*", "(a.(b|d))*", "a.(b.b)*.c", 'a+', '(a|b)+', 'a?', '(a|b)?']
+# strings = ["", "abc", "abbc", "abcc", "abad", "abbbc", 'a', 'aaa', 'ab', 'abab', 'ababa', 'a', 'aa', 'b']
+#
+# for i in infixes:
+#     for s in strings:
+#         print(match(i, s), i, s)
 
-for i in infixes:
-    for s in strings:
-        print(match(i, s), i, s)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Test strings against an infix regex expression')
+
+    parser.add_argument('regex', action='store', type=str, help='The infix regex expression to use.')
+    parser.add_argument('string', action='store', type=str, help='The string to test.')
+
+    args = parser.parse_args()
+
+    results = parser.parse_args()
+    print(match(results.regex, results.string))
